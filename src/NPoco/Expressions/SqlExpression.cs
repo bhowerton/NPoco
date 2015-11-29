@@ -204,7 +204,27 @@ namespace NPoco.Expressions
             selectMembers.Clear();
             Visit(fields);
             return this;
-        } 
+        }
+
+        /// <summary>
+        /// Explicit select clause
+        /// </summary>
+        /// <param name='sqlSelect'>
+        /// </param>
+        /// <typeparam name='TKey'>
+        /// objectWithProperties
+        /// </typeparam>
+        public virtual SqlExpression<T> Select<TKey>(string sqlSelect)
+        {
+            // Turn off column AutoAlias so generated OrderBys, etc. won't use aliased column name
+            foreach (var x in modelDef.QueryColumns)
+                x.Value.AutoAlias = x.Value.ColumnName;
+
+            SelectExpression = sqlSelect;
+            sep = string.Empty;
+            selectMembers.Clear();
+            return this;
+        }
         
         public virtual List<SelectMember> SelectProjection<TKey>(Expression<Func<T, TKey>> fields)
         {
@@ -389,6 +409,28 @@ namespace NPoco.Expressions
         //    this.orderBy = orderBy;
         //    return this;
         //}
+
+        public SqlExpression<T> OrderBy(string sqlOrderBy)
+        {
+            sep = string.Empty;
+            orderByProperties.Clear();
+            orderByMembers.Clear();
+            generalMembers.Clear();
+
+            this.orderBy = sqlOrderBy;
+            return this;
+        }
+
+        public virtual SqlExpression<T> OrderBy<TKey>(string sqlOrderBy)
+        {
+            sep = string.Empty;
+            orderByProperties.Clear();
+            orderByMembers.Clear();
+            generalMembers.Clear();
+
+            this.orderBy = sqlOrderBy;
+            return this;
+        }
 
         public virtual SqlExpression<T> OrderBy<TKey>(Expression<Func<T, TKey>> keySelector)
         {
@@ -649,8 +691,11 @@ namespace NPoco.Expressions
         {
             get
             {
+                if (!string.IsNullOrEmpty(selectExpression))
+                    return selectExpression;
+
                 var selectMembersFromOrderBys = orderByMembers
-                    .Select(x => new SelectMember() { PocoColumn = x.PocoColumn, EntityType = x.EntityType})
+                    .Select(x => new SelectMember() { PocoColumn = x.PocoColumn, EntityType = x.EntityType })
                     .Where(x => !selectMembers.Any(y => y.EntityType == x.EntityType && y.PocoColumn.MemberInfo.Name == x.PocoColumn.MemberInfo.Name));
 
                 var morecols = selectMembers.Concat(selectMembersFromOrderBys);
@@ -1460,6 +1505,9 @@ namespace NPoco.Expressions
 
             switch (m.Method.Name)
             {
+                case "QueryGraph":
+                    statement = string.Format("{0} QueryGraph!", quotedColName);
+                    break;
                 case "In":
                     statement = BuildInStatement(m.Arguments[1], quotedColName);
                     break;
